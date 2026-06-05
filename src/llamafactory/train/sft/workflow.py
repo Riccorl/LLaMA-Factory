@@ -85,7 +85,7 @@ def run_sft(
             metric_module["compute_metrics"] = ComputeEventExtraction(tokenizer=tokenizer)
         else:
             metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
-    
+
     elif finetuning_args.compute_accuracy:
         metric_module["compute_metrics"] = ComputeAccuracy()
         metric_module["preprocess_logits_for_metrics"] = eval_logit_processor

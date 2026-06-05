@@ -23,7 +23,8 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import numpy as np
 import torch
-from transformers import Seq2SeqTrainer
+from tqdm import tqdm
+from transformers import Seq2SeqTrainer, StoppingCriteria, StoppingCriteriaList
 from typing_extensions import override
 
 from ...extras import logging
@@ -42,6 +43,28 @@ if TYPE_CHECKING:
 
 
 logger = logging.get_logger(__name__)
+
+
+class _GenerationProgressStoppingCriteria(StoppingCriteria):
+    r"""Update a progress bar after each generated token step."""
+
+    def __init__(self, prompt_length: int, progress_bar: "tqdm") -> None:
+        self.prompt_length = prompt_length
+        self.progress_bar = progress_bar
+        self.current_length = 0
+
+    def __call__(self, input_ids: "torch.LongTensor", scores: "torch.FloatTensor", **kwargs) -> bool:
+        generated_length = max(input_ids.size(-1) - self.prompt_length, 0)
+        delta = generated_length - self.current_length
+        if delta > 0:
+            if self.progress_bar.total is not None:
+                delta = min(delta, self.progress_bar.total - self.progress_bar.n)
+
+            if delta > 0:
+                self.progress_bar.update(delta)
+                self.current_length += delta
+
+        return False
 
 
 class CustomSeq2SeqTrainer(Seq2SeqTrainer):
@@ -161,6 +184,46 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         else:
             return super().compute_loss(model, inputs, *args, **kwargs)
 
+    def _get_max_generation_steps(self, prompt_length: int, gen_kwargs: dict[str, Any]) -> Optional[int]:
+        max_new_tokens = gen_kwargs.get("max_new_tokens")
+        if isinstance(max_new_tokens, int) and max_new_tokens > 0:
+            return max_new_tokens
+
+        max_length = gen_kwargs.get("max_length")
+        if isinstance(max_length, int) and max_length > prompt_length:
+            return max_length - prompt_length
+
+        return None
+
+    def _add_generation_progress_bar(
+        self, inputs: dict[str, Union["torch.Tensor", Any]], gen_kwargs: dict[str, Any]
+    ) -> Optional["tqdm"]:
+        if not (
+            self.args.predict_with_generate
+            and self.finetuning_args.compute_event_metrics
+            and "input_ids" in inputs
+            and not self.args.disable_tqdm
+        ):
+            return None
+
+        progress_bar = tqdm(
+            total=self._get_max_generation_steps(inputs["input_ids"].size(-1), gen_kwargs),
+            desc="Generating event outputs",
+            disable=not self.is_local_process_zero(),
+            leave=False,
+            position=1,
+        )
+        progress_criteria = _GenerationProgressStoppingCriteria(inputs["input_ids"].size(-1), progress_bar)
+        stopping_criteria = gen_kwargs.get("stopping_criteria")
+        if stopping_criteria is None:
+            gen_kwargs["stopping_criteria"] = StoppingCriteriaList([progress_criteria])
+        elif isinstance(stopping_criteria, StoppingCriteriaList):
+            gen_kwargs["stopping_criteria"] = StoppingCriteriaList([*stopping_criteria, progress_criteria])
+        else:
+            gen_kwargs["stopping_criteria"] = StoppingCriteriaList([*list(stopping_criteria), progress_criteria])
+
+        return progress_bar
+
     @override
     def prediction_step(
         self,
@@ -179,9 +242,15 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         else:
             labels = inputs.get("labels")
 
-        loss, generated_tokens, _ = super().prediction_step(
-            model, inputs, prediction_loss_only=prediction_loss_only, ignore_keys=ignore_keys, **gen_kwargs
-        )
+        progress_bar = self._add_generation_progress_bar(inputs, gen_kwargs)
+        try:
+            loss, generated_tokens, _ = super().prediction_step(
+                model, inputs, prediction_loss_only=prediction_loss_only, ignore_keys=ignore_keys, **gen_kwargs
+            )
+        finally:
+            if progress_bar is not None:
+                progress_bar.close()
+
         if generated_tokens is not None and self.args.predict_with_generate:
             generated_tokens[:, : inputs["input_ids"].size(-1)] = self.processing_class.pad_token_id
             generated_tokens = generated_tokens.contiguous()
