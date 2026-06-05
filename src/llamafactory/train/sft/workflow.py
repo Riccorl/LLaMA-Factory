@@ -25,7 +25,7 @@ from ...extras.packages import is_transformers_version_greater_than
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
 from ..trainer_utils import create_modelcard_and_push, create_ref_model
-from .metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor
+from .metric import ComputeAccuracy, ComputeEventExtraction, ComputeSimilarity, eval_logit_processor
 from .trainer import CustomSeq2SeqTrainer
 
 
@@ -81,6 +81,11 @@ def run_sft(
 
     if training_args.predict_with_generate:
         metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
+        if finetuning_args.compute_event_metrics:
+            metric_module["compute_metrics"] = ComputeEventExtraction(tokenizer=tokenizer)
+        else:
+            metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
+    
     elif finetuning_args.compute_accuracy:
         metric_module["compute_metrics"] = ComputeAccuracy()
         metric_module["preprocess_logits_for_metrics"] = eval_logit_processor

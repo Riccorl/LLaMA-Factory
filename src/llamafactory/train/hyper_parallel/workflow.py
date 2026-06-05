@@ -24,7 +24,7 @@ from ...extras.misc import calculate_tps
 from ...extras.packages import is_hyper_parallel_available, is_transformers_version_greater_than
 from ...extras.ploting import plot_loss
 from ...model import load_model, load_tokenizer
-from ..sft.metric import ComputeAccuracy, ComputeSimilarity, eval_logit_processor
+from ..sft.metric import ComputeAccuracy, ComputeEventExtraction, ComputeSimilarity, eval_logit_processor
 from ..trainer_utils import create_modelcard_and_push, create_ref_model
 from .trainer import HyperParallelTrainer
 
@@ -157,6 +157,10 @@ def run_sft(
     metric_module = {}
     if training_args.predict_with_generate:
         metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
+        if finetuning_args.compute_event_metrics:
+            metric_module["compute_metrics"] = ComputeEventExtraction(tokenizer=tokenizer)
+        else:
+            metric_module["compute_metrics"] = ComputeSimilarity(tokenizer=tokenizer)
     elif finetuning_args.compute_accuracy:
         metric_module["compute_metrics"] = ComputeAccuracy()
         metric_module["preprocess_logits_for_metrics"] = eval_logit_processor

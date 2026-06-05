@@ -1,4 +1,76 @@
 {
+  "risk_train_no_desc_700_dropped": {
+    "file_name": "train.v4.sft.events.700.candidates.no_desc.fix.dropped.alpaca.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  },
+  "risk_dev_no_desc_700_dropped": {
+    "file_name": "dev.v4.sft.events.700.candidates.no_desc.fix.dropped.alpaca.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  },
+  "risk_train_no_desc_700": {
+    "file_name": "train.v4.sft.events.700.candidates.no_desc.alpaca.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  },
+  "risk_dev_no_desc_700": {
+    "file_name": "dev.v4.sft.events.700.candidates.no_desc.alpaca.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  },
+  "risk_train": {
+    "file_name": "train.v4.sft.events.384.candidates.alpaca.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  },
+  "risk_dev": {
+    "file_name": "dev.v4.sft.events.384.candidates.alpaca.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  },
+  "risk_dev_no_desc": {
+    "file_name": "dev.v4.sft.events.384.candidates.no_desc.alpaca.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  },
+  "risk_train_no_desc": {
+    "file_name": "train.v4.sft.events.384.candidates.no_desc.alpaca.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "system": "system"
+    }
+  },
   "identity": {
     "file_name": "identity.json"
   },

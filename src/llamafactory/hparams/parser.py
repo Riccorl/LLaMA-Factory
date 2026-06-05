@@ -371,6 +371,9 @@ def get_train_args(args: dict[str, Any] | list[str] | None = None) -> _TRAIN_CLS
         if finetuning_args.compute_accuracy:
             raise ValueError("Cannot use `predict_with_generate` and `compute_accuracy` together.")
 
+    elif finetuning_args.compute_event_metrics:
+        raise ValueError("`compute_event_metrics` requires `predict_with_generate`.")
+
     if training_args.do_train and model_args.quantization_device_map == "auto":
         raise ValueError("Cannot use device map for quantized models in training.")
 

@@ -540,6 +540,10 @@ class FinetuningArguments(
         default=False,
         metadata={"help": "Whether or not to compute the token-level accuracy at evaluation."},
     )
+    compute_event_metrics: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to compute sample-level event extraction metrics at generation evaluation."},
+    )
     disable_shuffling: bool = field(
         default=False,
         metadata={"help": "Whether or not to disable the shuffling of the training set."},

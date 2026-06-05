@@ -16,6 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
@@ -44,7 +45,9 @@ if is_rouge_available():
     from rouge_chinese import Rouge  # type: ignore
 
 
-def eval_logit_processor(logits: "torch.Tensor", labels: "torch.Tensor") -> "torch.Tensor":
+def eval_logit_processor(
+    logits: "torch.Tensor", labels: "torch.Tensor"
+) -> "torch.Tensor":
     r"""Compute the token with the largest likelihood to reduce memory footprint."""
     if isinstance(logits, (list, tuple)):
         if logits[0].dim() == 3:  # (batch_size, seq_len, vocab_size)
@@ -73,12 +76,16 @@ class ComputeAccuracy:
     def __post_init__(self):
         self._dump()
 
-    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[dict[str, float]]:
+    def __call__(
+        self, eval_preds: "EvalPrediction", compute_result: bool = True
+    ) -> Optional[dict[str, float]]:
         preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
         for i in range(len(preds)):
             pred, label = preds[i, :-1], labels[i, 1:]
             label_mask = label != IGNORE_INDEX
-            self.score_dict["accuracy"].append(np.mean(pred[label_mask] == label[label_mask]))
+            self.score_dict["accuracy"].append(
+                np.mean(pred[label_mask] == label[label_mask])
+            )
 
         if compute_result:
             return self._dump()
@@ -104,7 +111,9 @@ class ComputeSimilarity:
     def __post_init__(self):
         self._dump()
 
-    def __call__(self, eval_preds: "EvalPrediction", compute_result: bool = True) -> Optional[dict[str, float]]:
+    def __call__(
+        self, eval_preds: "EvalPrediction", compute_result: bool = True
+    ) -> Optional[dict[str, float]]:
         preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
 
         preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
@@ -117,8 +126,15 @@ class ComputeSimilarity:
             hypothesis = list(jieba.cut(pred))
             reference = list(jieba.cut(label))
 
-            if len(" ".join(hypothesis).split()) == 0 or len(" ".join(reference).split()) == 0:
-                result = {"rouge-1": {"f": 0.0}, "rouge-2": {"f": 0.0}, "rouge-l": {"f": 0.0}}
+            if (
+                len(" ".join(hypothesis).split()) == 0
+                or len(" ".join(reference).split()) == 0
+            ):
+                result = {
+                    "rouge-1": {"f": 0.0},
+                    "rouge-2": {"f": 0.0},
+                    "rouge-l": {"f": 0.0},
+                }
             else:
                 rouge = Rouge()
                 scores = rouge.get_scores(" ".join(hypothesis), " ".join(reference))
@@ -127,8 +143,105 @@ class ComputeSimilarity:
             for k, v in result.items():
                 self.score_dict[k].append(round(v["f"] * 100, 4))
 
-            bleu_score = sentence_bleu([list(label)], list(pred), smoothing_function=SmoothingFunction().method3)
+            bleu_score = sentence_bleu(
+                [list(label)],
+                list(pred),
+                smoothing_function=SmoothingFunction().method3,
+            )
             self.score_dict["bleu-4"].append(round(bleu_score * 100, 4))
+
+        if compute_result:
+            return self._dump()
+
+
+@dataclass
+class ComputeEventExtraction:
+    r"""Compute sample-level event type extraction metrics and support `batch_eval_metrics`."""
+
+    tokenizer: "PreTrainedTokenizer"
+
+    def _dump(self) -> Optional[dict[str, float]]:
+        result = None
+        if hasattr(self, "score_dict"):
+            tp = self.score_dict["tp"]
+            fp = self.score_dict["fp"]
+            fn = self.score_dict["fn"]
+            count = self.score_dict["count"]
+            precision = tp / (tp + fp) if tp + fp > 0 else 0.0
+            recall = tp / (tp + fn) if tp + fn > 0 else 0.0
+            f1 = (
+                2 * precision * recall / (precision + recall)
+                if precision + recall > 0
+                else 0.0
+            )
+            result = {
+                "event_precision": precision,
+                "event_recall": recall,
+                "event_f1": f1,
+                "event_exact_match": (
+                    self.score_dict["exact"] / count if count > 0 else 0.0
+                ),
+                "event_invalid_json_rate": (
+                    self.score_dict["invalid_json"] / count if count > 0 else 0.0
+                ),
+            }
+
+        self.score_dict = {
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "exact": 0,
+            "invalid_json": 0,
+            "count": 0,
+        }
+        return result
+
+    def __post_init__(self):
+        self._dump()
+
+    @staticmethod
+    def _event_types(text: str) -> tuple[set[str], bool]:
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            return set(), False
+
+        if not isinstance(payload, dict):
+            return set(), False
+
+        events = payload.get("events")
+        if not isinstance(events, list):
+            return set(), False
+
+        return {
+            event_type
+            for event in events
+            if isinstance(event, dict)
+            and isinstance((event_type := event.get("event_type")), str)
+            and len(event_type) > 0
+        }, True
+
+    def __call__(
+        self, eval_preds: "EvalPrediction", compute_result: bool = True
+    ) -> Optional[dict[str, float]]:
+        preds, labels = numpify(eval_preds.predictions), numpify(eval_preds.label_ids)
+
+        preds = np.where(preds != IGNORE_INDEX, preds, self.tokenizer.pad_token_id)
+        labels = np.where(labels != IGNORE_INDEX, labels, self.tokenizer.pad_token_id)
+
+        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        for pred, label in zip(decoded_preds, decoded_labels):
+            pred_types, valid_pred = self._event_types(pred)
+            label_types, _ = self._event_types(label)
+
+            self.score_dict["tp"] += len(pred_types & label_types)
+            self.score_dict["fp"] += len(pred_types - label_types)
+            self.score_dict["fn"] += len(label_types - pred_types)
+            self.score_dict["exact"] += int(pred_types == label_types)
+            self.score_dict["invalid_json"] += int(not valid_pred)
+            self.score_dict["count"] += 1
 
         if compute_result:
             return self._dump()
