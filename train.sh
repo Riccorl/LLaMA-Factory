@@ -4,7 +4,7 @@ llamafactory-cli train \
     --stage sft \
     --do_train True \
     --do_eval True \
-    --model_name_or_path Qwen/Qwen3-4B-Instruct-2507 \
+    --model_name_or_path Qwen/Qwen3.5-4B \
     --preprocessing_num_workers 8 \
     --finetuning_type lora \
     --template qwen3_nothink \
@@ -23,11 +23,17 @@ llamafactory-cli train \
     --weight_decay 0.01 \
     --logging_steps 5 \
     --save_steps 500 \
+    --eval_strategy steps \
+    --eval_steps 10 \
+    --per_device_eval_batch_size 2 \
+    --predict_with_generate True \
+    --compute_event_metrics True \
+    --max_new_tokens 4096 \
     --warmup_steps 400 \
     --packing False \
     --enable_thinking False \
     --report_to wandb \
-    --output_dir saves/Qwen3-4B-Instruct-2507/lora/train_2026-06-04-11-40-no_desc_700_dropped \
+    --output_dir saves/Qwen3.5-4B/lora/train_2026-06-05-11-10-no_desc_700_dropped \
     --bf16 True \
     --plot_loss True \
     --trust_remote_code True \
