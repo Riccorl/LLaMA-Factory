@@ -28,6 +28,8 @@ llamafactory-cli train \
     --per_device_eval_batch_size 2 \
     --predict_with_generate True \
     --compute_event_metrics True \
+    --do_sample False \
+    --temperature 0 \
     --max_new_tokens 4096 \
     --warmup_steps 400 \
     --packing False \

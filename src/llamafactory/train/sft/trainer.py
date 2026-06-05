@@ -224,6 +224,12 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
         return progress_bar
 
+    def _get_generation_kwargs(self, gen_kwargs: dict[str, Any]) -> dict[str, Any]:
+        if len(gen_kwargs) == 0 and hasattr(self, "_gen_kwargs"):
+            return self._gen_kwargs.copy()
+
+        return gen_kwargs
+
     @override
     def prediction_step(
         self,
@@ -242,6 +248,7 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
         else:
             labels = inputs.get("labels")
 
+        gen_kwargs = self._get_generation_kwargs(gen_kwargs)
         progress_bar = self._add_generation_progress_bar(inputs, gen_kwargs)
         try:
             loss, generated_tokens, _ = super().prediction_step(
