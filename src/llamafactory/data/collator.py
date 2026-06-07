@@ -468,6 +468,8 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
             mm_inputs["cross_attention_mask"] = F.pad(cross_attention_mask, (0, 0, 0, 0, 0, seq_len - orig_len))
 
         features.update(mm_inputs)
+        # if "mm_token_type_ids" not in features:
+        #     features["mm_token_type_ids"] = torch.zeros_like(features["input_ids"])
 
         if "image_bound" in features:  # for minicpmv inputs
             bsz, seq_length = features["input_ids"].shape

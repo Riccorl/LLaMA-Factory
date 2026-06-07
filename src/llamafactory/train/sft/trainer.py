@@ -172,6 +172,9 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
 
     @override
     def compute_loss(self, model, inputs, *args, **kwargs):
+        # if "mm_token_type_ids" not in inputs:
+        #     inputs["mm_token_type_ids"] = torch.zeros_like(inputs["input_ids"])
+        
         if self.finetuning_args.use_asft_loss:
             with torch.no_grad():
                 ref_outputs = self.ref_model(
