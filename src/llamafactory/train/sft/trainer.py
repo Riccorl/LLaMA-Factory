@@ -17,9 +17,10 @@
 
 import json
 import os
+from contextlib import contextmanager
 from functools import partial
 from types import MethodType
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
 
 import numpy as np
 import torch
@@ -232,6 +233,37 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
             return self._gen_kwargs.copy()
 
         return gen_kwargs
+
+    @contextmanager
+    def _generation_padding_side(self) -> Iterator[None]:
+        tokenizer = self.processing_class
+        original_padding_side = getattr(tokenizer, "padding_side", None)
+        original_init_padding_side = getattr(tokenizer, "init_kwargs", {}).get("padding_side", None)
+        if self.args.predict_with_generate and original_padding_side is not None:
+            tokenizer.padding_side = "left"
+            if hasattr(tokenizer, "init_kwargs"):
+                tokenizer.init_kwargs["padding_side"] = "left"
+
+        try:
+            yield
+        finally:
+            if original_padding_side is not None:
+                tokenizer.padding_side = original_padding_side
+                if hasattr(tokenizer, "init_kwargs"):
+                    if original_init_padding_side is None:
+                        tokenizer.init_kwargs.pop("padding_side", None)
+                    else:
+                        tokenizer.init_kwargs["padding_side"] = original_init_padding_side
+
+    @override
+    def evaluate(self, *args, **kwargs):
+        with self._generation_padding_side():
+            return super().evaluate(*args, **kwargs)
+
+    @override
+    def predict(self, *args, **kwargs):
+        with self._generation_padding_side():
+            return super().predict(*args, **kwargs)
 
     @override
     def prediction_step(
