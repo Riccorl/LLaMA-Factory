@@ -15,6 +15,7 @@
 import gc
 import json
 import time
+# from pathlib import Path
 
 import av
 import fire
@@ -58,8 +59,10 @@ def vllm_infer(
     temperature: float = 0.95,
     top_p: float = 0.7,
     top_k: int = 50,
+    min_p: float = 0.0,
     max_new_tokens: int = 1024,
     repetition_penalty: float = 1.0,
+    presence_penalty: float = 0.0,
     skip_special_tokens: bool = True,
     default_system: str | None = None,
     enable_thinking: bool = True,
@@ -224,6 +227,8 @@ def vllm_infer(
 
     model_predict_end_time = time.time()
     # Write all results at once outside the loop
+    # save_name = Path(save_name)
+    # save_name.parent.mkdir(parents=True, exist_ok=True)
     with open(save_name, "w", encoding="utf-8") as f:
         for text, pred, label in zip(all_prompts, all_preds, all_labels):
             f.write(json.dumps({"prompt": text, "predict": pred, "label": label}, ensure_ascii=False) + "\n")
