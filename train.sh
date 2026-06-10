@@ -56,15 +56,15 @@ llamafactory-cli train \
     --finetuning_type lora \
     --flash_attn auto \
     --dataset_dir data \
-    --dataset risk_train_no_desc_700_dropped \
-    --eval_dataset risk_dev_no_desc_700_dropped \
-    --cutoff_len 8192 \
+    --dataset risk_v2_train_no_desc_700_args_dropped \
+    --eval_dataset risk_v2_dev_no_desc_700_args_dropped \
+    --cutoff_len 16384 \
     --learning_rate 5e-5 \
     --num_train_epochs 5.0 \
     --max_samples 1000000 \
     --preprocessing_num_workers 8 \
-    --per_device_train_batch_size 4 \
-    --gradient_accumulation_steps 8 \
+    --per_device_train_batch_size 2 \
+    --gradient_accumulation_steps 16 \
     --lr_scheduler_type cosine \
     --max_grad_norm 1.0 \
     --weight_decay 0.01 \
@@ -82,7 +82,7 @@ llamafactory-cli train \
     --packing False \
     --enable_thinking False \
     --report_to wandb \
-    --output_dir saves/Qwen3-4B-Instruct-2507/lora/train_2026-06-05-12-50-no_desc_700_dropped \
+    --output_dir saves/Qwen3-4B-Instruct-2507/lora/train_2026-06-09-11-45-no_desc_700_args_dropped \
     --bf16 True \
     --plot_loss True \
     --trust_remote_code True \
